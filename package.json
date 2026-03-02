@@ -1,0 +1,72 @@
+{
+    "name": "honeybadger-switch-controller",
+    "private": true,
+    "version": "0.1.0",
+    "type": "module",
+    "main": "main.js",
+    "scripts": {
+        "dev": "concurrently \"node server.js\" \"vite --host\"",
+        "build": "vite build",
+        "preview": "vite preview",
+        "start": "node server.js",
+        "electron:dev": "concurrently \"cross-env NODE_ENV=development vite\" \"wait-on tcp:5173 && electron .\"",
+        "build:mac": "npm run build && electron-builder -m",
+        "build:win": "npm run build && electron-builder -w"
+    },
+    "dependencies": {
+        "axios": "^1.13.2",
+        "cors": "^2.8.5",
+        "dotenv": "^16.6.1",
+        "express": "^4.22.1",
+        "lucide-react": "^0.300.0",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "ssh2": "^1.17.0",
+        "tcp-ping": "^0.1.1"
+    },
+    "devDependencies": {
+        "@types/react": "^18.2.43",
+        "@types/react-dom": "^18.2.17",
+        "@vitejs/plugin-react": "^4.2.1",
+        "concurrently": "^8.2.2",
+        "cross-env": "^10.1.0",
+        "electron": "^40.6.0",
+        "electron-builder": "^26.8.1",
+        "esbuild": "^0.27.3",
+        "vite": "^7.3.1",
+        "wait-on": "^7.2.0"
+    },
+    "build": {
+        "appId": "com.green.switchdashboard",
+        "productName": "Switch Control Dashboard",
+        "directories": {
+            "output": "dist_electron"
+        },
+        "files": [
+            "dist/**/*",
+            "server.js",
+            "main.js",
+            "package.json"
+        ],
+        "extraFiles": [
+            "devices.json",
+            ".env.example"
+        ],
+        "mac": {
+            "target": [
+                "dmg"
+            ],
+            "category": "public.app-category.utilities"
+        },
+        "win": {
+            "target": [
+                {
+                    "target": "nsis",
+                    "arch": [
+                        "x64"
+                    ]
+                }
+            ]
+        }
+    }
+}
