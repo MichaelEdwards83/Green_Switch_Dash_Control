@@ -25,7 +25,28 @@ function startServer() {
     // Determine the base path based on whether the app is packaged
     // For portable apps, electron-builder sets PORTABLE_EXECUTABLE_DIR
     const basePath = isPackaged ? (process.env.PORTABLE_EXECUTABLE_DIR || path.dirname(app.getPath('exe'))) : process.cwd();
+    const userDataPath = app.getPath('userData');
     
+    // Ensure user data config files exist by copying from installation if missing
+    const envDest = path.join(userDataPath, '.env');
+    const devicesDest = path.join(userDataPath, 'devices.json');
+    
+    const envSrc = path.join(basePath, '.env.example');
+    const devicesSrc = path.join(basePath, 'devices.json');
+
+    try {
+        if (!fs.existsSync(envDest) && fs.existsSync(envSrc)) {
+            fs.copyFileSync(envSrc, envDest);
+            logToFile(`Created initial .env at ${envDest}`);
+        }
+        if (!fs.existsSync(devicesDest) && fs.existsSync(devicesSrc)) {
+            fs.copyFileSync(devicesSrc, devicesDest);
+            logToFile(`Created initial devices.json at ${devicesDest}`);
+        }
+    } catch (e) {
+        logToFile(`Error copying initial config files: ${e.message}`);
+    }
+
     // app.getAppPath() points to that root
     const serverPath = path.join(app.getAppPath(), 'server.js');
 
@@ -92,7 +113,7 @@ app.whenReady().then(() => {
         },
         {
             label: 'Open Configuration Folder', click: () => {
-                shell.openPath(basePath);
+                shell.openPath(app.getPath('userData'));
             }
         },
         {
