@@ -10,15 +10,31 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Priority: Environmental Override > PKG standalone > Local folder
-const basePath = process.env.APP_BASE_PATH ||
+// Priority: Portable Executable > Environmental Override > PKG standalone > Local folder
+const basePath = process.env.PORTABLE_EXECUTABLE_DIR || 
+    process.env.APP_BASE_PATH ||
     (process.pkg ? path.dirname(process.execPath) : process.cwd());
 
 import dotenv from 'dotenv';
-const envPath = path.join(basePath, '.env');
-dotenv.config({ path: envPath });
+const possibleEnvPaths = [
+    process.env.USER_DATA_PATH ? path.join(process.env.USER_DATA_PATH, '.env') : null,
+    path.join(basePath, '.env'),
+    process.env.TEMP_EXTRACT_PATH ? path.join(process.env.TEMP_EXTRACT_PATH, '.env') : null
+].filter(Boolean);
 
-console.log(`[Server] Environment Path: ${envPath}`);
+let loadedEnv = false;
+for (const envFile of possibleEnvPaths) {
+    if (fs.existsSync(envFile)) {
+        dotenv.config({ path: envFile });
+        console.log(`[Server] Loaded .env from ${envFile}`);
+        loadedEnv = true;
+        break;
+    }
+}
+if (!loadedEnv) {
+    console.warn('[Server] No .env file found. Searching paths:', possibleEnvPaths);
+}
+
 console.log(`[Server] Credentials Status: User=${process.env.SWITCH_USER ? 'SET' : 'MISSING'}, Pass=${process.env.SWITCH_PASS ? 'SET' : 'MISSING'}`);
 
 const app = express();
@@ -33,17 +49,29 @@ app.use(express.static(distPath));
 
 // Read configuration from devices.json on the host OS
 let devices = [];
-try {
-    const devicesPath = path.join(basePath, 'devices.json');
-    if (fs.existsSync(devicesPath)) {
-        const rawData = fs.readFileSync(devicesPath);
-        devices = JSON.parse(rawData);
-        console.log(`[Server] Loaded ${devices.length} devices from ${devicesPath}`);
-    } else {
-        console.warn(`[Server] devices.json not found at ${devicesPath}. Starting with empty device list.`);
+let loadedDevices = false;
+
+const possibleDevicePaths = [
+    process.env.USER_DATA_PATH ? path.join(process.env.USER_DATA_PATH, 'devices.json') : null,
+    path.join(basePath, 'devices.json'),
+    process.env.TEMP_EXTRACT_PATH ? path.join(process.env.TEMP_EXTRACT_PATH, 'devices.json') : null
+].filter(Boolean);
+
+for (const devFile of possibleDevicePaths) {
+    try {
+        if (fs.existsSync(devFile)) {
+            devices = JSON.parse(fs.readFileSync(devFile, 'utf8'));
+            console.log(`[Server] Loaded ${devices.length} devices from ${devFile}`);
+            loadedDevices = true;
+            break;
+        }
+    } catch (e) {
+        console.error(`[Server] Failed to parse ${devFile}:`, e.message);
     }
-} catch (err) {
-    console.error(`[Server] Failed to load devices.json: ${err.message}`);
+}
+
+if (!loadedDevices) {
+    console.warn(`[Server] devices.json not found. Starting with empty device list. Searched paths:`, possibleDevicePaths);
 }
 
 // Agent Configuration for Switches
@@ -59,35 +87,63 @@ class NetgearConfigAgent {
         this.password = password;
         this.baseUrl = `https://${ip}:8443/api/v1`;
         this.token = null;
+        this.loginPromise = null;
         this.client = axios.create({
             baseURL: this.baseUrl,
             httpsAgent,
             timeout: 30000,
             headers: { 'Content-Type': 'application/json' }
         });
+
+        // Handle token expiration globally for this agent
+        this.client.interceptors.response.use(
+            (response) => response,
+            async (error) => {
+                const originalRequest = error.config;
+                if (error.response && error.response.status === 401 && !originalRequest._retry && originalRequest.url !== '/login') {
+                    originalRequest._retry = true;
+                    this.token = null;
+                    if (await this.login()) {
+                        originalRequest.headers['Authorization'] = `Bearer ${this.token}`;
+                        return this.client(originalRequest);
+                    }
+                }
+                return Promise.reject(error);
+            }
+        );
     }
 
     async login() {
         if (!this.username || !this.password) {
-            throw new Error('Missing credentials (check your .env file)');
+            console.error(`[${this.ip}] Login failed: Missing credentials (check your .env file)`);
+            return false;
         }
-        try {
-            const res = await this.client.post('/login', {
-                login: {
-                    username: String(this.username),
-                    password: String(this.password)
+        
+        if (this.loginPromise) return this.loginPromise;
+
+        this.loginPromise = (async () => {
+            try {
+                const res = await this.client.post('/login', {
+                    login: {
+                        username: String(this.username),
+                        password: String(this.password)
+                    }
+                });
+                const token = res.data.login?.token;
+                if (token) {
+                    this.token = token;
+                    this.client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+                    return true;
                 }
-            });
-            const token = res.data.login?.token;
-            if (token) {
-                this.token = token;
-                this.client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-                return true;
+            } catch (err) {
+                console.error(`[${this.ip}] Login failed: ${err.message}`);
+            } finally {
+                this.loginPromise = null;
             }
-        } catch (err) {
-            console.error(`[${this.ip}] Login failed: ${err.message}`);
-        }
-        return false;
+            return false;
+        })();
+
+        return this.loginPromise;
     }
 
     async getDeviceInfo() {
@@ -318,8 +374,17 @@ class NetgearConfigAgent {
     }
 }
 
-// In-Memory Cache
+// In-Memory Caches
 const switchCache = {};
+const activeAgents = {}; // ip -> NetgearConfigAgent
+
+function getAgent(ip) {
+    if (!ip) return null;
+    if (!activeAgents[ip]) {
+        activeAgents[ip] = new NetgearConfigAgent(ip, process.env.SWITCH_USER, process.env.SWITCH_PASS);
+    }
+    return activeAgents[ip];
+}
 
 function getPortCountFromModel(model) {
     if (!model) return 48; // Default
@@ -342,32 +407,36 @@ async function pollSwitch(sw) {
     let trunkStatus = false;
 
     // Check OOB
-    const agentOob = new NetgearConfigAgent(sw.ip_oob, process.env.SWITCH_USER, process.env.SWITCH_PASS);
-    if (await agentOob.login()) {
-        oobStatus = true;
+    const agentOob = getAgent(sw.ip_oob);
+    if (agentOob && (agentOob.token || await agentOob.login())) {
+        try {
+            if (await agentOob.getDeviceInfo()) oobStatus = true;
+        } catch (e) {}
     }
 
     // Check Trunk if configured
-    if (sw.ip_trunk) {
-        const agentTrunk = new NetgearConfigAgent(sw.ip_trunk, process.env.SWITCH_USER, process.env.SWITCH_PASS);
-        if (await agentTrunk.login()) {
-            trunkStatus = true;
+    let agentTrunk = null;
+    if (!oobStatus && sw.ip_trunk) {
+        agentTrunk = getAgent(sw.ip_trunk);
+        if (agentTrunk && (agentTrunk.token || await agentTrunk.login())) {
+            try {
+                if (await agentTrunk.getDeviceInfo()) trunkStatus = true;
+            } catch (e) {}
         }
     }
 
-    let agent = null;
+    let resultAgent = null;
     if (oobStatus) {
-        agent = agentOob;
+        resultAgent = agentOob;
         activeIp = sw.ip_oob;
         usedChannel = 'oob';
     } else if (trunkStatus) {
-        agent = new NetgearConfigAgent(sw.ip_trunk, process.env.SWITCH_USER, process.env.SWITCH_PASS);
-        await agent.login();
+        resultAgent = agentTrunk;
         activeIp = sw.ip_trunk;
         usedChannel = 'trunk';
     }
 
-    if (!oobStatus && !trunkStatus) {
+    if (!resultAgent) {
         const currentCache = switchCache[sw.ip_oob] || {};
         switchCache[sw.ip_oob] = {
             ...currentCache,
@@ -375,9 +444,6 @@ async function pollSwitch(sw) {
         };
         return;
     }
-
-    const resultAgent = (usedChannel === 'oob') ? agentOob : new NetgearConfigAgent(sw.ip_trunk, process.env.SWITCH_USER, process.env.SWITCH_PASS);
-    if (usedChannel === 'trunk' && !resultAgent.token) await resultAgent.login();
 
     try {
         const deviceInfo = await resultAgent.getDeviceInfo();
@@ -503,6 +569,17 @@ app.get('/api/status', async (req, res) => {
     }
 });
 
+app.get('/api/debug', (req, res) => {
+    res.json({
+        basePath: basePath,
+        tempPath: process.env.TEMP_EXTRACT_PATH || 'N/A',
+        hasUser: !!process.env.SWITCH_USER,
+        hasPass: !!process.env.SWITCH_PASS,
+        envPath: envPath,
+        devicesFile: devicesPath
+    });
+});
+
 // 2. Control APIs (VLAN / PoE)
 app.post('/api/vlan/set', express.json(), async (req, res) => {
     const { ip, port, vlanId } = req.body;
@@ -511,7 +588,8 @@ app.post('/api/vlan/set', express.json(), async (req, res) => {
     const cached = switchCache[ip];
     const targetIp = cached?.activeIp || ip;
 
-    const agent = new NetgearConfigAgent(targetIp, process.env.SWITCH_USER, process.env.SWITCH_PASS);
+    const agent = getAgent(targetIp);
+    if (!agent) return res.status(500).json({ error: 'Failed to initialize agent' });
     try {
         await agent.setVlan(port, vlanId);
 
@@ -531,7 +609,8 @@ app.post('/api/poe/cycle', express.json(), async (req, res) => {
     const cached = switchCache[ip];
     const targetIp = cached?.activeIp || ip;
 
-    const agent = new NetgearConfigAgent(targetIp, process.env.SWITCH_USER, process.env.SWITCH_PASS);
+    const agent = getAgent(targetIp);
+    if (!agent) return res.status(500).json({ error: 'Failed to initialize agent' });
     try {
         await agent.cyclePoe(port);
         res.json({ success: true });

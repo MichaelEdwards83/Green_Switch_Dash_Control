@@ -8,7 +8,7 @@ let serverProcess = null;
 
 // Paths
 const isPackaged = app.isPackaged;
-const basePath = isPackaged ? path.dirname(app.getPath('exe')) : process.cwd();
+const basePath = process.env.PORTABLE_EXECUTABLE_DIR || (isPackaged ? path.dirname(app.getPath('exe')) : process.cwd());
 const logPath = path.join(app.getPath('userData'), 'server-logs.txt');
 
 function logToFile(data) {
@@ -22,6 +22,10 @@ function logToFile(data) {
 
 function startServer() {
     // In a packaged app, files are in the resources/app.asar folder
+    // Determine the base path based on whether the app is packaged
+    // For portable apps, electron-builder sets PORTABLE_EXECUTABLE_DIR
+    const basePath = isPackaged ? (process.env.PORTABLE_EXECUTABLE_DIR || path.dirname(app.getPath('exe'))) : process.cwd();
+    
     // app.getAppPath() points to that root
     const serverPath = path.join(app.getAppPath(), 'server.js');
 
@@ -29,11 +33,15 @@ function startServer() {
     logToFile(`Server Path: ${serverPath}`);
     logToFile(`Config Base Path: ${basePath}`);
 
+    const tempExtractPath = isPackaged ? path.dirname(app.getPath('exe')) : process.cwd();
+
     serverProcess = fork(serverPath, [], {
         env: {
             ...process.env,
             NODE_ENV: 'production',
             APP_BASE_PATH: basePath,
+            TEMP_EXTRACT_PATH: tempExtractPath,
+            USER_DATA_PATH: app.getPath('userData'),
             IS_ELECTRON: 'true'
         },
         // We capture output to write to our log file
