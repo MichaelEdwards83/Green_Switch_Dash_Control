@@ -66,7 +66,7 @@ const SwitchOverview = () => {
         const finalPorts = Array.from(portMap.entries()).map(([ifName, dataMap]) => {
           const sortedData = Array.from(dataMap.values()).sort((a, b) => a.timestamp - b.timestamp);
           return { name: ifName, data: sortedData };
-        }).filter(p => p.data.some(d => d.inbound > 0.05 || d.outbound > 0.05)); // Only show active ports
+        }).sort((a, b) => a.name.localeCompare(b.name)); // Sort alphabetically/numerically
 
         // Sort ports numerically if possible
         finalPorts.sort((a, b) => {

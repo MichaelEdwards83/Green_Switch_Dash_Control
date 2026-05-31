@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Server, Activity, Clock } from 'lucide-react';
+import React, { useState } from 'react';
+import { Server, Activity, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import NetworkChart from './NetworkChart';
 
@@ -7,33 +7,12 @@ const SwitchCard = ({ switchData, uplinkPort }) => {
   const ip = switchData.ip_trunk || switchData.ip_oob;
   const isCore = switchData.name && switchData.name.toLowerCase().includes('core');
   
-  // Update status color based on switchDetails connectivity if available
-  const isActuallyOnline = switchData.switchDetails?.connectivity?.active !== 'none' && switchData.online;
+  // Status relies on the accurate "online" boolean from the unified API
+  const isActuallyOnline = switchData.online;
   const statusLabel = isActuallyOnline ? 'Online' : 'Offline';
   const statusColor = isActuallyOnline ? '#10b981' : '#ef4444';
 
-  const [sessionTime, setSessionTime] = useState(0);
-
-  useEffect(() => {
-    let interval;
-    if (isActuallyOnline) {
-      interval = setInterval(() => {
-        setSessionTime(prev => prev + 1);
-      }, 1000);
-    } else {
-      setSessionTime(0);
-    }
-    return () => clearInterval(interval);
-  }, [isActuallyOnline]);
-
-  const formatSession = (seconds) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    if (h > 0) return `${h}h ${m}m ${s}s`;
-    if (m > 0) return `${m}m ${s}s`;
-    return `${s}s`;
-  };
+  const [latestTraffic, setLatestTraffic] = useState({ in: 0, out: 0 });
 
   return (
     <Link 
@@ -48,8 +27,8 @@ const SwitchCard = ({ switchData, uplinkPort }) => {
         overflow: 'hidden',
         transition: 'all 0.2s ease',
         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-        minHeight: '320px', // Allow dynamic scaling, stop cramped overlapping
-        height: '100%'
+        height: '380px', // Fixed height prevents infinite flexing
+        maxHeight: '380px'
       }}
       className="hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10"
     >
@@ -89,8 +68,13 @@ const SwitchCard = ({ switchData, uplinkPort }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)' }}>
           <Activity size={14} /> Status: <span style={{ color: statusColor, fontWeight: '500' }}>{statusLabel}</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-secondary)' }}>
-          <Clock size={14} /> Session: <span style={{ color: 'var(--text-primary)' }}>{isActuallyOnline ? formatSession(sessionTime) : 'Offline'}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '2px', color: 'var(--primary-color)' }}>
+            <ArrowDownToLine size={12} /> {latestTraffic.in.toFixed(1)} Mbps
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#3b82f6' }}>
+            <ArrowUpFromLine size={12} /> {latestTraffic.out.toFixed(1)} Mbps
+          </span>
         </div>
       </div>
 
@@ -99,7 +83,12 @@ const SwitchCard = ({ switchData, uplinkPort }) => {
           Trunk Bandwidth
         </div>
         {/* Render a tiny chart for the trunk port */}
-        <NetworkChart ip={ip} port={uplinkPort} hideControls={true} />
+        <NetworkChart 
+          ip={ip} 
+          port={uplinkPort} 
+          hideControls={true} 
+          onLatestData={(inbound, outbound) => setLatestTraffic({ in: inbound, out: outbound })}
+        />
       </div>
     </Link>
   );

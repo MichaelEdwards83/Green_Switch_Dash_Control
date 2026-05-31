@@ -10,7 +10,7 @@ import {
   Legend
 } from 'recharts';
 
-const NetworkChart = ({ ip, port, hideControls = false }) => {
+const NetworkChart = ({ ip, port, hideControls = false, onLatestData }) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -56,6 +56,10 @@ const NetworkChart = ({ ip, port, hideControls = false }) => {
         const mergedData = Array.from(dataMap.values()).sort((a, b) => a.timestamp - b.timestamp);
         setData(mergedData);
         setError(null);
+        if (onLatestData && mergedData.length > 0) {
+          const lastPoint = mergedData[mergedData.length - 1];
+          onLatestData(lastPoint.inbound, lastPoint.outbound);
+        }
       } catch (err) {
         console.error("NetworkChart Error:", err);
         setError(err.message);

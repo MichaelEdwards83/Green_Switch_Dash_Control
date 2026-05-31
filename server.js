@@ -580,7 +580,7 @@ app.get('/api/status', async (req, res) => {
             ...device,
             online_oob: oob,
             online_trunk: trunk,
-            online: device.type === 'switch' ? isSwitchOnline : (oob || trunk),
+            online: oob || trunk,
             lastChecked: new Date().toISOString(),
             switchDetails: cachedData ? {
                 connectivity: cachedData.connectivity,
