@@ -6,6 +6,7 @@ import https from 'https';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,9 +39,23 @@ if (!loadedEnv) {
 console.log(`[Server] Credentials Status: User=${process.env.SWITCH_USER ? 'SET' : 'MISSING'}, Pass=${process.env.SWITCH_PASS ? 'SET' : 'MISSING'}`);
 
 const app = express();
-const PORT = 3002; // Using 3002 to avoid conflicts with other apps during dev
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
+
+// Proxy /api/mapper requests to Python backend
+app.use('/api/mapper', createProxyMiddleware({
+    target: process.env.MAPPER_URL || 'http://127.0.0.1:8080',
+    changeOrigin: true,
+    pathRewrite: {
+        '^/': '/api/'
+    },
+    onError: (err, req, res) => {
+        console.error('[Proxy Error]', err.message);
+        res.status(502).json({ error: 'Mapper Backend is down' });
+    }
+}));
+
 app.use(express.json());
 
 // Serve React build from the embedded 'dist' folder relative to this script
@@ -176,17 +191,33 @@ class NetgearConfigAgent {
 
                 for (let pid = chunkStart; pid <= batchEnd; pid++) {
                     batchPromises.push(
-                        this.client.get(`/sw_portstats?portid=${pid}`).catch(e => null)
+                        this.client.get(`/sw_portstats?portid=${pid}`).catch(e => {
+                            if (chunkStart === startId && pid === startId) {
+                                console.error(`[${this.ip}] Port ${pid} stats fetch failed:`, e.message);
+                            }
+                            return null;
+                        })
                     );
                 }
 
                 const results = await Promise.all(batchPromises);
+                
+                // Debug log for the first port response to see its structure
+                if (chunkStart === startId && results[0] && results[0].data) {
+                    console.log(`[${this.ip}] Raw portstats keys:`, Object.keys(results[0].data));
+                }
+                
                 results.forEach(r => {
-                    if (r && r.data && r.data.switchStatsPort) {
-                        if (Array.isArray(r.data.switchStatsPort)) {
-                            allStats.push(...r.data.switchStatsPort);
+                    if (r && r.data) {
+                        if (r.data.switchStatsPort) {
+                            if (Array.isArray(r.data.switchStatsPort)) {
+                                allStats.push(...r.data.switchStatsPort);
+                            } else {
+                                allStats.push(r.data.switchStatsPort);
+                            }
                         } else {
-                            allStats.push(r.data.switchStatsPort);
+                            // If switchStatsPort is missing but data is present, log it once
+                            if (chunkStart === startId) console.log(`[${this.ip}] Unexpected stats format:`, Object.keys(r.data));
                         }
                     }
                 });
@@ -416,7 +447,7 @@ async function pollSwitch(sw) {
 
     // Check Trunk if configured
     let agentTrunk = null;
-    if (!oobStatus && sw.ip_trunk) {
+    if (sw.ip_trunk) {
         agentTrunk = getAgent(sw.ip_trunk);
         if (agentTrunk && (agentTrunk.token || await agentTrunk.login())) {
             try {
@@ -543,12 +574,13 @@ app.get('/api/status', async (req, res) => {
         const [oob, trunk] = await Promise.all([checkOob, checkTrunk]);
 
         const cachedData = device.type === 'switch' ? switchCache[device.ip_oob] : null;
+        const isSwitchOnline = cachedData ? cachedData.connectivity.active !== 'none' : false;
 
         return {
             ...device,
             online_oob: oob,
             online_trunk: trunk,
-            online: oob || trunk,
+            online: device.type === 'switch' ? isSwitchOnline : (oob || trunk),
             lastChecked: new Date().toISOString(),
             switchDetails: cachedData ? {
                 connectivity: cachedData.connectivity,
@@ -616,6 +648,137 @@ app.post('/api/poe/cycle', express.json(), async (req, res) => {
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+// 3. Admin APIs
+app.get('/api/admin/devices', (req, res) => {
+    res.json(devices);
+});
+
+app.post('/api/admin/devices', express.json(), (req, res) => {
+    const { password, newDevices } = req.body;
+    if (password !== 'FuseFuse123!') {
+        return res.status(401).json({ error: 'Invalid password' });
+    }
+    if (!Array.isArray(newDevices)) {
+        return res.status(400).json({ error: 'newDevices must be an array' });
+    }
+    
+    // Save to the highest priority file that was found, or default
+    const targetFile = process.env.USER_DATA_PATH 
+        ? path.join(process.env.USER_DATA_PATH, 'devices.json') 
+        : (possibleDevicePaths.find(p => p && fs.existsSync(p)) || path.join(basePath, 'devices.json'));
+    try {
+        fs.writeFileSync(targetFile, JSON.stringify(newDevices, null, 2));
+        devices = newDevices;
+        res.json({ success: true, message: 'Devices updated' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/admin/credentials', (req, res) => {
+    res.json({
+        username: process.env.SWITCH_USER || '',
+        password: process.env.SWITCH_PASS ? '********' : ''
+    });
+});
+
+app.post('/api/admin/credentials', express.json(), (req, res) => {
+    const { password, credentials } = req.body;
+    if (password !== 'FuseFuse123!') {
+        return res.status(401).json({ error: 'Invalid password' });
+    }
+    
+    if (credentials.username) process.env.SWITCH_USER = credentials.username;
+    if (credentials.password && credentials.password !== '********') {
+        process.env.SWITCH_PASS = credentials.password;
+    }
+    
+    // Save to .env
+    const envPath = process.env.USER_DATA_PATH 
+        ? path.join(process.env.USER_DATA_PATH, '.env')
+        : (possibleEnvPaths.find(p => p && fs.existsSync(p)) || path.join(basePath, '.env'));
+    let envContent = '';
+    if (fs.existsSync(envPath)) {
+        envContent = fs.readFileSync(envPath, 'utf8');
+    }
+    
+    if (envContent.includes('SWITCH_USER=')) {
+        envContent = envContent.replace(/SWITCH_USER=.*/, `SWITCH_USER=${process.env.SWITCH_USER}`);
+    } else {
+        envContent += `\nSWITCH_USER=${process.env.SWITCH_USER}`;
+    }
+    
+    if (envContent.includes('SWITCH_PASS=')) {
+        envContent = envContent.replace(/SWITCH_PASS=.*/, `SWITCH_PASS=${process.env.SWITCH_PASS}`);
+    } else {
+        envContent += `\nSWITCH_PASS=${process.env.SWITCH_PASS}`;
+    }
+    
+    try {
+        fs.writeFileSync(envPath, envContent.trim() + '\n');
+        
+        // Update any active agents with new credentials
+        for (const ip in activeAgents) {
+            activeAgents[ip].username = process.env.SWITCH_USER;
+            activeAgents[ip].password = process.env.SWITCH_PASS;
+            activeAgents[ip].token = null; // force re-login
+        }
+        
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 4. Metrics API
+app.get('/api/metrics/:ip', async (req, res) => {
+    const { ip } = req.params;
+    const { range, port } = req.query; // e.g. '24h', '2h'
+    
+    try {
+        const promUrl = process.env.PROMETHEUS_URL || 'http://prometheus:9090';
+        
+        // Find device to match both oob and trunk
+        const device = devices.find(d => d.ip_oob === ip || d.ip_trunk === ip);
+        let ipsToMatch = [ip];
+        if (device) {
+            ipsToMatch = [device.ip_oob, device.ip_trunk].filter(Boolean);
+        }
+        const instanceRegex = `^(${ipsToMatch.join('|')})$`;
+
+        // Calculate time range
+        const end = Math.floor(Date.now() / 1000);
+        let start = end - 3600; // Default 1 hour
+        let step = '1m';
+
+        if (range === '24h') {
+            start = end - 86400;
+            step = '30m';
+        } else if (range === '2h') {
+            start = end - 7200;
+            step = '2m';
+        }
+        
+        const portFilter = port ? `,ifName=~".*(${port}).*"` : '';
+        const groupBy = req.query.perPort === 'true' ? ' by (ifName)' : '';
+        const queryIn = encodeURIComponent(`sum${groupBy}(rate(ifHCInOctets{instance=~"${instanceRegex}"${portFilter}}[5m])) * 8`);
+        const queryOut = encodeURIComponent(`sum${groupBy}(rate(ifHCOutOctets{instance=~"${instanceRegex}"${portFilter}}[5m])) * 8`);
+
+        const [inRes, outRes] = await Promise.all([
+            axios.get(`${promUrl}/api/v1/query_range?query=${queryIn}&start=${start}&end=${end}&step=${step}`),
+            axios.get(`${promUrl}/api/v1/query_range?query=${queryOut}&start=${start}&end=${end}&step=${step}`)
+        ]);
+
+        res.json({
+            inbound: inRes.data?.data?.result || [],
+            outbound: outRes.data?.data?.result || []
+        });
+    } catch (e) {
+        console.error(`[${ip}] Error fetching metrics from Prometheus:`, e.message);
+        res.status(500).json({ error: 'Failed to fetch metrics' });
     }
 });
 

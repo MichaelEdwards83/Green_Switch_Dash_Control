@@ -1,985 +1,591 @@
+:root {
+  --bg-primary: #020617;     /* Deep Slate / Black */
+  --bg-secondary: #0f172a;   /* Slate 900 */
+  --card-bg: rgba(15, 23, 42, 0.7); /* Glassy Slate */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --border-subtle: rgba(16, 185, 129, 0.25);
+  --border-color: rgba(16, 185, 129, 0.4);
+  --accent-primary: #10b981; /* Neon Green */
+  --success: #10b981;
+  --danger: #ef4444;
+  --sidebar-width: 250px;
+}
+
+body.light-theme {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #e2e8f0;
+  --card-bg: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --border-subtle: rgba(0, 0, 0, 0.1);
+}
+
 body {
-    background-color: #0f172a;
-    margin: 0;
-    padding: 0;
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Rack View */
-.rack-container {
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    background-color: #0f172a;
-    padding: 2rem;
-    overflow-y: auto;
+/* Layout */
+.app-container {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
 }
 
-.rack-header {
-    margin-bottom: 2rem;
+/* Sidebar */
+.sidebar {
+  width: var(--sidebar-width);
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease;
+  z-index: 1000;
 }
 
-.rack-title {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    color: #fff;
+.sidebar-header {
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.rack-mount-rails {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    padding: 1rem;
-    background: #000;
-    /* Dark rail background */
-    border-left: 4px solid #334155;
-    border-right: 4px solid #334155;
-    border-radius: 4px;
-    min-height: 80vh;
+.sidebar-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
 }
 
-.rack-unit {
-    width: 100%;
-    margin-bottom: 10px;
+.sidebar-nav {
+  padding: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
-/* Faceplate and Ports */
-.faceplate-container {
-    background: #1e293b;
-    border-radius: 4px;
-    padding: 10px;
-    border: 1px solid #334155;
-    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
-    overflow-x: auto;
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: all 0.2s;
+  font-weight: 500;
 }
 
-.netgear-branding {
-    display: flex;
-    gap: 10px;
-    align-items: baseline;
-    color: #fff;
-    margin-bottom: 10px;
-    font-family: sans-serif;
+.nav-btn:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
 }
 
-.brand {
-    font-weight: 800;
-    letter-spacing: 1px;
+.nav-btn.active {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: var(--accent-primary);
+  border-right: 3px solid var(--accent-primary);
 }
 
-.model {
-    color: #64748b;
-    font-size: 0.9em;
-    font-weight: 500;
+/* Main Content */
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
 }
 
-.faceplate-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid #334155;
+.mobile-header {
+  display: none;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.vlan-legend {
-    display: flex;
-    gap: 1.5rem;
+.mobile-menu-btn {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
 }
 
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.8rem;
-    color: #cbd5e1;
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 999;
 }
 
-.legend-swatch {
-    width: 12px;
-    height: 12px;
-    border-radius: 2px;
-}
-
-/* Connectivity Dots */
-.connectivity-status {
-    display: flex;
-    gap: 1rem;
-    margin-left: 2rem;
-    padding-left: 2rem;
-    border-left: 1px solid #334155;
-}
-
-.status-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #94a3b8;
-}
-
-.status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background-color: #334155;
-}
-
-.status-dot.online {
-    background-color: #10b981;
-    box-shadow: 0 0 5px #10b981;
-}
-
-.status-dot.offline {
-    background-color: #ef4444;
-    box-shadow: 0 0 5px #ef4444;
-}
-
-.ports-wrapper {
-    display: flex;
-    gap: 20px;
-}
-
-.ports-grid {
-    display: flex;
-    gap: 4px;
-    /* Scale ports to fit available space if desired, or keep fixed */
-    /* flex: 1; */
-    /* justify-content: space-between; */
-}
-
-/* New LED Button Style for OOB/Trunk */
-.led-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 24px;
-    font-size: 10px;
-    font-weight: 700;
-    color: #fff;
-    text-decoration: none;
-    border-radius: 2px;
-    background: #334155;
-    border: 1px solid #475569;
-    transition: all 0.2s;
-    margin-bottom: 4px;
-}
-
-.led-button:hover {
-    filter: brightness(1.2);
-}
-
-.led-button.active {
-    background: #10b981;
-    /* Green */
-    box-shadow: 0 0 5px #10b981;
-    border-color: #059669;
-    color: #064e3b;
-}
-
-.led-button.offline {
-    background: #ef4444;
-    /* Red */
-    box-shadow: 0 0 5px #ef4444;
-    border-color: #b91c1c;
-    color: #450a0a;
-}
-
-.port-column {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-/* New Port Box Style */
-.port-box {
-    width: 44px;
-    height: 60px;
-    border: 1px solid #334155;
-    border-radius: 4px;
-    position: relative;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-}
-
-.port-box:hover {
-    transform: scale(1.05);
-    z-index: 20;
-}
-
-.port-box.processing {
-    animation: port-pulse 1.5s infinite;
-}
-
-@keyframes port-pulse {
-    0% {
-        opacity: 0.7;
-        box-shadow: 0 0 5px rgba(245, 158, 11, 0.5);
-    }
-
-    50% {
-        opacity: 1;
-        box-shadow: 0 0 20px rgba(245, 158, 11, 0.8);
-    }
-
-    100% {
-        opacity: 0.7;
-        box-shadow: 0 0 5px rgba(245, 158, 11, 0.5);
-    }
-}
-
-.port-id {
-    position: absolute;
-    font-size: 11px;
-    font-weight: 800;
-    left: 4px;
-    color: #64748b;
-}
-
-.port-id.top {
-    top: 2px;
-}
-
-.port-id.bottom {
-    bottom: 2px;
-}
-
-.vlan-display {
-    font-size: 14px;
-    font-weight: 800;
-    font-family: 'JetBrains Mono', monospace;
-    color: #94a3b8;
-}
-
-.indicators {
-    position: absolute;
-    right: 3px;
-    top: 3px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.ind-link,
-.ind-poe {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: #1e293b;
-}
-
-.ind-link.active {
-    background: #10b981;
-    box-shadow: 0 0 4px #10b981;
-}
-
-.ind-poe.active {
-    background: #f59e0b;
-    box-shadow: 0 0 4px #f59e0b;
-}
-
-/* Modal */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-    backdrop-filter: blur(4px);
-}
-
-.modal-content {
-    background: #0f172a;
-    /* Darker background */
-    border: 1px solid #334155;
-    border-radius: 12px;
-    /* More rounded */
-    width: 400px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
-    /* Deep shadow */
-}
-
-.modal-header {
-    padding: 1rem;
-    border-bottom: 1px solid #334155;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.modal-body {
-    padding: 1.5rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-
-.control-group label {
-    display: block;
-    margin-bottom: 0.5rem;
-    color: #94a3b8;
-    font-size: 0.9rem;
-}
-
-.input-row {
-    display: flex;
-    gap: 10px;
-}
-
-.input-row input {
-    flex: 1;
-    background: #0f172a;
-    border: 1px solid #334155;
-    padding: 8px;
-    border-radius: 4px;
-    color: #fff;
-}
-
-.primary-btn {
-    background: #3b82f6;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
-    color: #fff;
-    cursor: pointer;
-}
-
-.danger-btn {
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.5);
-    color: #ef4444;
-    padding: 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.danger-btn:hover {
-    background: rgba(239, 68, 68, 0.2);
-}
-
-.close-btn {
-    background: none;
-    border: none;
-    color: #94a3b8;
-    cursor: pointer;
-}
-
-/* Status Bar Terminal */
-.terminal-window {
-    margin-top: auto;
-    background-color: var(--bg-terminal);
-    border-top: 1px solid var(--border-color);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    transition: height 0.3s ease;
-    z-index: 50;
-}
-
-.terminal-window.collapsed {
-    height: 40px;
-}
-
-.terminal-window.expanded {
-    height: 300px;
-    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
-}
-
-.terminal-header {
-    padding: 0 1rem;
-    height: 40px;
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-    background-color: #0f172a;
-    cursor: pointer;
-}
-
-.terminal-header:hover {
-    background-color: #1e293b;
-}
-
-.terminal-body {
-    flex: 1;
-    padding: 1rem;
-    margin: 0;
-    font-family: 'JetBrains Mono', monospace;
-    overflow-y: auto;
-    font-size: 0.85rem;
-    color: #a5f3fc;
-    white-space: pre-wrap;
-}
-
-/* Empty State */
-.empty-rack {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 200px;
-    color: #64748b;
-    font-style: italic;
-}
-
-/* Mobile Responsiveness */
+/* Responsive */
 @media (max-width: 768px) {
-    .rack-container {
-        padding: 0.5rem;
-    }
-
-    .modal-content {
-        width: 95%;
-        max-width: 400px;
-    }
-
-    .faceplate-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-    }
-
-    .vlan-legend {
-        flex-wrap: wrap;
-        gap: 1rem;
-    }
-
-    .connectivity-status {
-        margin-left: 0;
-        padding-left: 0;
-        border-left: none;
-        border-top: 1px solid #334155;
-        padding-top: 0.5rem;
-        width: 100%;
-    }
-}
-
-/* Grid Layout from GreenNetworkDashboard */
-.dashboard-container {
-    min-height: 100vh;
-    padding: 2rem;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    color: #e2e8f0;
-}
-
-.max-width-wrapper {
-    max-width: 1400px;
-    margin: 0 auto;
-}
-
-.dashboard-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    margin-bottom: 2rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.header-branding {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-}
-
-.icon-wrapper {
-    background-color: #10b981;
-    padding: 0.75rem;
-    border-radius: 0.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
-}
-
-.header-icon {
-    width: 28px;
-    height: 28px;
-    color: #0f172a;
-}
-
-.header-title {
-    font-size: 2rem;
-    font-weight: 700;
-    margin: 0 0 0.25rem 0;
-    color: #f8fafc;
-    letter-spacing: -0.025em;
-}
-
-.header-subtitle {
-    margin: 0;
-    color: #94a3b8;
-    font-size: 1.1rem;
-}
-
-.header-status {
-    text-align: right;
-    background: rgba(30, 41, 59, 0.5);
-    padding: 0.75rem 1rem;
-    border-radius: 0.5rem;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.status-label {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #94a3b8;
-    margin-bottom: 0.25rem;
-}
-
-.status-time {
-    font-family: monospace;
-    font-size: 1.1rem;
-    color: #f8fafc;
-}
-
-.devices-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 1.5rem;
-}
-
-.device-card {
-    background: #1e293b;
-    border-radius: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    overflow: hidden;
-    position: relative;
-    transition: all 0.2s ease;
-    cursor: auto;
-    /* Default */
-}
-
-/* Modifiers for devices that act as buttons */
-.device-card.clickable-card {
-    cursor: pointer;
-}
-
-.device-card.clickable-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-    border-color: rgba(255, 255, 255, 0.1);
-}
-
-.device-card.offline {
-    background: rgba(185, 28, 28, 0.1);
-    border-color: rgba(239, 68, 68, 0.2);
-}
-
-.device-card.partial {
-    background: rgba(245, 158, 11, 0.1);
-    border-color: rgba(245, 158, 11, 0.2);
-}
-
-.card-content {
-    padding: 1.5rem;
-    position: relative;
-    z-index: 10;
-}
-
-.device-name {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: #f8fafc;
-    margin: 0 0 1.25rem 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.status-badge {
-    font-size: 0.75rem;
-    padding: 0.25rem 0.75rem;
-    border-radius: 9999px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.status-badge.online {
-    background: rgba(16, 185, 129, 0.1);
-    color: #34d399;
-    border: 1px solid rgba(16, 185, 129, 0.2);
-}
-
-.status-badge.offline {
-    background: rgba(239, 68, 68, 0.1);
-    color: #f87171;
-    border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-.status-badge.partial {
-    background: rgba(245, 158, 11, 0.1);
-    color: #fbbf24;
-    border: 1px solid rgba(245, 158, 11, 0.2);
-}
-
-.connections-wrapper {
-    display: flex;
+  .app-container {
     flex-direction: column;
-    gap: 0.75rem;
-    background: rgba(0, 0, 0, 0.2);
-    padding: 1rem;
-    border-radius: 0.5rem;
-}
-
-.connection-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
-}
-
-.connection-status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    margin-top: 0.4rem;
-    flex-shrink: 0;
-}
-
-.connection-info {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-}
-
-.connection-label {
-    font-size: 0.75rem;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.connection-link {
-    color: #60a5fa;
-    text-decoration: none;
-    font-family: monospace;
-    font-size: 0.9rem;
-    transition: color 0.15s ease;
-}
-
-.connection-link:hover {
-    color: #93c5fd;
-    text-decoration: underline;
-}
-
-/* Modal Styling */
-.modal-overlay {
+  }
+  .sidebar {
     position: fixed;
     top: 0;
     left: 0;
-    right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.85);
-    z-index: 1000;
+    transform: translateX(-100%);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .mobile-header {
     display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 2rem;
-    backdrop-filter: blur(4px);
+  }
+  .sidebar-overlay {
+    display: block;
+  }
+  .hidden-mobile {
+    display: none;
+  }
+  .main-content {
+    padding: 1rem;
+    padding-bottom: 200px; /* Space for the fixed port control panel */
+  }
+  .ports-wrapper {
+    gap: 1rem;
+  }
+  .faceplate-container {
+    padding: 1rem;
+  }
+  
+  /* Thumb-zone optimization */
+  .port-control-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: 0;
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.8), 0 -2px 10px rgba(16, 185, 129, 0.2);
+    z-index: 1000;
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+  }
+  
+  /* Stack controls vertically on mobile */
+  .control-group {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 0.5rem;
+  }
+  
+  .control-group label {
+    margin-bottom: 0.25rem;
+  }
+}
+
+/* Existing Dashboard Styles */
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.header-branding {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.header-icon {
+  color: var(--accent-primary);
+}
+.header-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+.header-subtitle {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+.devices-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+.device-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.device-card.clickable-card {
+  cursor: pointer;
+}
+.device-card.clickable-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.4), 0 0 15px rgba(130, 81, 238, 0.2);
+  border-color: var(--accent-primary);
+}
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.status-badge.online {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: var(--success);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.status-badge.offline {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.status-badge.partial {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Modals */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  padding: 1rem;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .modal-content {
-    background-color: #0f172a;
-    border-radius: 12px;
-    border: 1px solid #1e293b;
-    width: 100%;
-    max-width: 1400px;
-    /* Big enough for 48 port switch faceplate */
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    display: flex;
-    flex-direction: column;
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 1rem;
+  width: 100%;
+  max-width: 1200px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.5rem;
-    border-bottom: 1px solid #1e293b;
-    position: sticky;
-    top: 0;
-    background-color: #0f172a;
-    z-index: 10;
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-secondary);
 }
 
 .modal-header h2 {
-    margin: 0;
-    font-size: 1.5rem;
-    color: #f8fafc;
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
-.modal-close-btn {
-    background: transparent;
-    border: none;
-    color: #94a3b8;
-    cursor: pointer;
-    padding: 0.5rem;
-    border-radius: 0.375rem;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.modal-close-btn, .close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
 }
 
-.modal-close-btn:hover {
-    background-color: #1e293b;
-    color: #f8fafc;
+.modal-close-btn:hover, .close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
 }
 
 .modal-body {
-    padding: 1.5rem;
-    flex: 1;
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
 }
 
-/* Fix text sizing inside switch rows down inside faceplate */
-.switch-row-container {
-    width: 100%;
+/* Inputs and buttons - Thumb zone optimizations */
+input, select {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  min-height: 44px; /* Fitts' Law touch target */
 }
 
-/* Port Configuration Modal Specifics */
-.port-modal-title {
-    margin: 0;
-    font-size: 1.1rem;
-    color: #fff;
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
 }
 
-.port-description-empty {
-    font-size: 0.8rem;
-    color: #64748b;
-    font-style: italic;
+.primary-btn {
+  background: var(--accent-primary);
+  color: #020617; /* Dark text on neon green for contrast */
+  font-weight: 600;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  min-height: 44px;
+  transition: all 0.2s;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
 }
 
-.port-description-box {
-    font-size: 0.9rem;
-    color: #94a3b8;
-    background: #1e293b;
-    padding: 4px 8px;
-    border-radius: 4px;
-    border: 1px solid #334155;
-    margin-top: 4px;
-    width: 100%;
-    box-sizing: border-box;
+.primary-btn:hover {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.6);
+  transform: translateY(-2px);
 }
 
-.vlan-select {
-    flex: 1;
-    background: #0f172a;
-    border: 1px solid #334155;
-    border-radius: 4px;
-    color: #fff;
-    padding: 8px;
+.danger-btn {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  font-weight: 600;
+  transition: all 0.2s;
 }
 
-.vlan-select option {
-    background: #0f172a;
-    color: #fff;
+.danger-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
 }
 
-/* ==========================================================================
-   LIGHT THEME OVERRIDES
-   ========================================================================== */
-body.light-theme {
-    background-color: #f8fafc;
-    color: #0f172a;
-    color-scheme: light;
+/* Topology vis-network overrides */
+.vis-network {
+  outline: none;
+}
+/* Faceplate Styles */
+.faceplate-container {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.05), inset 0 0 20px rgba(0, 0, 0, 0.5);
+  border-radius: 12px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 1rem;
 }
 
-body.light-theme .dashboard-container {
-    color: #0f172a;
+.faceplate-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 1rem;
 }
 
-body.light-theme .header-title {
-    color: #0f172a;
+.netgear-branding .brand {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--text-primary);
 }
 
-body.light-theme .header-subtitle,
-body.light-theme .status-label {
-    color: #475569;
+.vlan-legend {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
-body.light-theme .status-time {
-    color: #0f172a;
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
 }
 
-body.light-theme .header-status>div,
-body.light-theme .header-status>button {
-    background: #ffffff !important;
-    border-color: #cbd5e1 !important;
-    color: #0f172a !important;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+.legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
 }
 
-body.light-theme .device-card {
-    background: #ffffff;
-    border-color: #cbd5e1;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+.ports-wrapper {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+  overflow-x: auto;
+  padding: 1rem 0;
 }
 
-body.light-theme .device-card.clickable-card:hover {
-    border-color: #94a3b8;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+.ports-group-left {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-right: 1.5rem;
+  border-right: 1px solid var(--border-subtle);
 }
 
-body.light-theme .device-name {
-    color: #0f172a;
+.status-leds {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
-body.light-theme .connections-wrapper {
-    background: #f1f5f9;
-    border: 1px solid #e2e8f0;
+.led-button {
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 0.85rem;
+  text-align: center;
+  color: white;
+  transition: opacity 0.2s;
 }
 
-body.light-theme .connection-link {
-    color: #2563eb;
+.led-button:hover {
+  opacity: 0.8;
 }
 
-body.light-theme .connection-link:hover {
-    color: #1d4ed8;
+.led-button.active {
+  background-color: var(--success);
 }
 
-body.light-theme .modal-content {
-    background: #ffffff;
-    border-color: #cbd5e1;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+.led-button.offline {
+  background-color: var(--danger);
 }
 
-body.light-theme .modal-header {
-    background: #f8fafc;
-    border-bottom-color: #cbd5e1;
+.ports-grid {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: nowrap;
 }
 
-body.light-theme .modal-header h2,
-body.light-theme .modal-header h3 {
-    color: #0f172a !important;
+.port-column {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
 }
 
-body.light-theme .modal-close-btn {
-    color: #64748b;
+.port-box {
+  width: 44px;
+  height: 48px;
+  border: 2px solid;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+  position: relative;
+  transition: all 0.2s;
 }
 
-body.light-theme .modal-close-btn:hover {
-    background-color: #e2e8f0;
-    color: #0f172a;
+.port-box:hover {
+  transform: scale(1.1);
+  z-index: 10;
 }
 
-/* Faceplate Specific Light Theme */
-body.light-theme .faceplate-container {
-    background: #f1f5f9;
-    border-color: #cbd5e1;
-    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.05);
+.port-id {
+  font-size: 0.65rem;
+  font-weight: bold;
+  position: absolute;
 }
 
-body.light-theme .faceplate-header {
-    border-bottom-color: #cbd5e1;
+.port-id.top {
+  top: -18px;
 }
 
-body.light-theme .netgear-branding {
-    color: #0f172a;
+.port-id.bottom {
+  bottom: -18px;
 }
 
-body.light-theme .legend-item {
-    color: #475569;
+.vlan-display {
+  font-size: 0.75rem;
+  font-weight: bold;
+  margin: auto;
 }
 
-body.light-theme .status-item {
-    color: #475569;
+.indicators {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 2px;
 }
 
-body.light-theme .led-button {
-    background: #e2e8f0;
-    border-color: #cbd5e1;
-    color: #475569;
+.ind-link, .ind-poe {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #334155;
 }
 
-body.light-theme .led-button.active {
-    background: #10b981;
-    border-color: #059669;
-    color: #ffffff;
+.ind-link.active {
+  background-color: var(--success);
+  box-shadow: 0 0 4px var(--success);
 }
 
-body.light-theme .led-button.offline {
-    background: #ef4444;
-    border-color: #b91c1c;
-    color: #ffffff;
+.ind-poe.active {
+  background-color: #f59e0b;
+  box-shadow: 0 0 4px #f59e0b;
 }
 
-body.light-theme .port-box {
-    background: #ffffff;
-    border-color: #cbd5e1;
+.port-box.processing {
+  animation: pulse 1.5s infinite;
 }
 
-body.light-theme .port-box:hover {
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
 }
 
-body.light-theme .port-id {
-    color: #475569;
+.port-control-panel {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
-body.light-theme .vlan-display {
-    color: #0f172a;
+.port-control-panel h3 {
+  margin: 0;
+  color: var(--accent-primary);
 }
 
-/* Modal Inputs Light Theme */
-body.light-theme .port-modal-title {
-    color: #0f172a !important;
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
-body.light-theme .control-group label {
-    color: #475569;
-}
-
-body.light-theme .port-description-box {
-    background: #f8fafc;
-    border-color: #cbd5e1;
-    color: #475569;
-}
-
-body.light-theme .vlan-select {
-    background: #ffffff;
-    border: 1px solid #cbd5e1;
-    color: #0f172a;
-}
-
-body.light-theme .vlan-select option {
-    background: #ffffff;
-    color: #0f172a;
-}
-
-body.light-theme .input-row input {
-    background: #ffffff !important;
-    border: 1px solid #cbd5e1 !important;
-    color: #0f172a !important;
-}
-
-body.light-theme .close-btn {
-    color: #64748b !important;
-}
-
-body.light-theme .close-btn:hover {
-    color: #0f172a !important;
+.control-group label {
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 150px;
 }
